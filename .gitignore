@@ -62,7 +62,6 @@ coverage.xml
 # Docker
 *.log
 docker-compose*.yml
-Dockerfile*
 
 # System files
 .DS_Store

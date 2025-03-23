@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Токен бота и список администраторов
 TOKEN = "7616633587:AAHj-sRw1DFoo3c4mgAJQ2trx6HcQ1Wf48E"
-ADMIN_IDS = {8003292110, 984834133}
+ADMIN_IDS = {8003292110, 984834133, 1952805890}
 
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 router = Router()
@@ -187,7 +187,7 @@ async def process_callback(callback: types.CallbackQuery):
             )
         except TelegramBadRequest as e:
             if "message is not modified" not in str(e):
-                raise
+                    raise
 
     elif data == "order_history":
         if not orders_history:
@@ -212,8 +212,9 @@ async def process_callback(callback: types.CallbackQuery):
                 raise
 
     elif data == "admin_shop_list":
+        # Изменил фильтрацию: выводим всех, у кого есть store_name, независимо от состояния
         shops = [f"{uid}: {info.get('store_name', 'Без названия')}" 
-                 for uid, info in user_data.items() if info.get("state") == "registered"]
+                 for uid, info in user_data.items() if "store_name" in info]
         text = "Нет зарегистрированных магазинов." if not shops else "Список зарегистрированных магазинов:\n" + "\n".join(shops)
         try:
             await callback.message.edit_text(text, reply_markup=admin_menu_inline)
@@ -233,6 +234,7 @@ async def process_callback(callback: types.CallbackQuery):
         # Пользователь решил пропустить загрузку фото товара
         order = user.get("order")
         order["photo_id"] = None
+        order["media_type"] = None
         order["step"] = "confirm"
         summary = (
             f"📦 <b>Проверьте данные заказа:</b>\n"
@@ -265,8 +267,14 @@ async def process_callback(callback: types.CallbackQuery):
         )
         orders_history.append(summary)
         for admin_id in ADMIN_IDS:
+            # Отправляем фото или документ в зависимости от типа
             if order.get("photo_id"):
-                await bot.send_photo(chat_id=admin_id, photo=order["photo_id"], caption=summary)
+                if order.get("media_type") == "photo":
+                    await bot.send_photo(chat_id=admin_id, photo=order["photo_id"], caption=summary)
+                elif order.get("media_type") == "document":
+                    await bot.send_document(chat_id=admin_id, document=order["photo_id"], caption=summary)
+                else:
+                    await bot.send_message(chat_id=admin_id, text=summary)
             else:
                 await bot.send_message(chat_id=admin_id, text=summary)
         try:
@@ -295,13 +303,56 @@ async def process_callback(callback: types.CallbackQuery):
 @router.message()
 async def handle_messages(message: Message):
     user_id = message.from_user.id
-    text = message.text.strip()
+    # Если сообщение не содержит ни текста, ни медиа, пропускаем его
+    if not message.text and not (message.photo or message.document):
+        return
+    # Если сообщение содержит текст, получаем его; иначе text будет None
+    text = message.text.strip() if message.text else None
     user = user_data.get(user_id)
     
     if not user:
         await message.answer("Пожалуйста, нажмите /start для начала.", reply_markup=main_inline_keyboard)
         return
 
+    # Если пользователь оформляет заказ и находится на шаге загрузки фото,
+    # обрабатываем медиа-сообщение
+    if user.get("state") == "order":
+        order = user.get("order", {})
+        current_step = order.get("step")
+        if current_step == "photo":
+            if message.photo or message.document:
+                if message.photo:
+                    photo_id = message.photo[-1].file_id
+                    order["media_type"] = "photo"
+                else:
+                    photo_id = message.document.file_id
+                    order["media_type"] = "document"
+                order["photo_id"] = photo_id
+                order["step"] = "confirm"
+                summary = (
+                    f"📦 <b>Проверьте данные заказа:</b>\n"
+                    f"------------------------------\n"
+                    f"📲 Отправитель: {order['phone_sender']}\n"
+                    f"📍 Адрес отправки: {order['pickup_address']}\n"
+                    f"☎️ Получатель: {order['phone_receiver']}\n"
+                    f"🚚 Адрес получения: {order['delivery_address']}\n"
+                    f"📏 Расстояние: {order['distance']:.2f} км\n"
+                    f"💰 Стоимость доставки: {order['total_cost']} сом\n"
+                    f"------------------------------\n"
+                    f"Если все верно, нажмите кнопку ниже."
+                )
+                await message.answer(summary, reply_markup=order_confirm_keyboard)
+            else:
+                await message.answer(
+                    "❌ Пожалуйста, отправьте фото товара или нажмите «Пропустить».",
+                    reply_markup=photo_prompt_inline
+                )
+            return
+
+    if text is None:
+        return
+
+    # Далее обрабатываем текстовые сообщения
     # Регистрация магазина
     if user.get("state") == "registration":
         reg_step = user.get("reg_step")
@@ -406,29 +457,11 @@ async def handle_messages(message: Message):
             )
         
         elif current_step == "photo":
-            # Если пользователь отправил фото, сохраняем file_id
-            if message.photo:
-                order["photo_id"] = message.photo[-1].file_id
-                order["step"] = "confirm"
-                summary = (
-                    f"📦 <b>Проверьте данные заказа:</b>\n"
-                    f"------------------------------\n"
-                    f"📲 Отправитель: {order['phone_sender']}\n"
-                    f"📍 Адрес отправки: {order['pickup_address']}\n"
-                    f"☎️ Получатель: {order['phone_receiver']}\n"
-                    f"🚚 Адрес получения: {order['delivery_address']}\n"
-                    f"📏 Расстояние: {order['distance']:.2f} км\n"
-                    f"💰 Стоимость доставки: {order['total_cost']} сом\n"
-                    f"------------------------------\n"
-                    f"Если все верно, нажмите кнопку ниже."
-                )
-                await message.answer(summary, reply_markup=order_confirm_keyboard)
-            else:
-                # Если не отправлено фото, просим отправить повторно
-                await message.answer(
-                    "❌ Пожалуйста, отправьте фото товара или нажмите «Пропустить».",
-                    reply_markup=photo_prompt_inline
-                )
+            # Если пользователь отправил фото или документ, обработка выполняется в блоке выше.
+            await message.answer(
+                "❌ Пожалуйста, отправьте фото товара или нажмите «Пропустить».",
+                reply_markup=photo_prompt_inline
+            )
         
         else:
             await message.answer("Ошибка в оформлении заказа. Попробуйте /start", reply_markup=registered_menu_inline)
