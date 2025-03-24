@@ -59,10 +59,6 @@ coverage.xml
 # VSCode
 .vscode/
 
-# Docker
-*.log
-docker-compose*.yml
-
 # System files
 .DS_Store
 Thumbs.db

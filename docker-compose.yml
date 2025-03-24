@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  bot:
+    container_name: zakaz_cargo_bot
+    build: .
+    restart: always
+    env_file: .env
+    volumes:
+      - ./database.sqlite:/app/database.sqlite
