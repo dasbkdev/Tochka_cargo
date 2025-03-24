@@ -32,7 +32,6 @@ async def delivery_info(callback: types.CallbackQuery):
 
 @router.callback_query(lambda c: c.data == "contact_dispatcher")
 async def contact_dispatcher(callback: types.CallbackQuery):
-    # Если требуется перенаправить на WhatsApp, можно отправить ссылку:
     wa_link = f"https://wa.me/{DISPATCHER_PHONE.lstrip('+')}"
     text = f"Свяжитесь с диспетчером через WhatsApp:\n{wa_link}"
     await callback.message.edit_text(text, reply_markup=registered_menu_keyboard())
@@ -40,6 +39,5 @@ async def contact_dispatcher(callback: types.CallbackQuery):
 
 @router.callback_query(lambda c: c.data == "back")
 async def back(callback: types.CallbackQuery):
-    # Возвращаем в меню магазина (можно адаптировать для разных сценариев)
     await callback.message.edit_text("Меню:", reply_markup=registered_menu_keyboard())
     await callback.answer()

@@ -10,7 +10,6 @@ router = Router()
 @router.callback_query(lambda c: c.data == "admin_login")
 async def admin_login(callback: CallbackQuery):
     user_id = callback.from_user.id
-    # Проверяем права в обработчике /start уже, здесь просто переключаем меню
     await callback.message.edit_text("✅ Вы успешно вошли как администратор!", reply_markup=admin_menu_keyboard())
     await callback.answer()
 

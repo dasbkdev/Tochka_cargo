@@ -9,7 +9,6 @@ import asyncio
 
 router = Router()
 
-# Временное хранение заказа для каждого пользователя
 order_state = {}
 
 @router.callback_query(lambda c: c.data == "order")
@@ -55,7 +54,6 @@ async def order_confirmation(callback: types.CallbackQuery):
         await callback.answer("Заказ не найден", show_alert=True)
         return
     if callback.data == "order_confirm":
-        # Здесь можно добавить сохранение заказа в БД
         order_id = add_order(
             user_id,
             state.get("phone_sender"),
@@ -69,9 +67,40 @@ async def order_confirmation(callback: types.CallbackQuery):
             state.get("description", ""),
             state.get("weight", "")
         )
-        # После сохранения удаляем состояние заказа
+        summary = (
+            f"📦 Новый заказ от пользователя {user_id} (Order ID: {order_id}):\n"
+            f"Отправитель: {state.get('phone_sender')}\n"
+            f"Адрес отправки: {state.get('pickup_address')}\n"
+            f"Получатель: {state.get('phone_receiver')}\n"
+            f"Адрес получения: {state.get('delivery_address')}\n"
+            f"Расстояние: {state.get('distance'):.2f} км\n"
+            f"Стоимость: {state.get('total_cost')} сом\n"
+            f"Описание: {state.get('description', 'Нет')}\n"
+            f"Вес: {state.get('weight', 'Не указан')}"
+        )
+        for admin_id in ADMIN_IDS:
+            if state.get("photo_id"):
+                if state.get("media_type") == "photo":
+                    await callback.bot.send_photo(
+                        chat_id=admin_id, 
+                        photo=state["photo_id"], 
+                        caption=summary
+                    )
+                elif state.get("media_type") == "document":
+                    await callback.bot.send_document(
+                        chat_id=admin_id, 
+                        document=state["photo_id"], 
+                        caption=summary
+                    )
+                else:
+                    await callback.bot.send_message(chat_id=admin_id, text=summary)
+            else:
+                await callback.bot.send_message(chat_id=admin_id, text=summary)
         order_state.pop(user_id, None)
-        await callback.message.edit_text(f"✅ Заказ #{order_id} оформлен! В течение 2 минут с вами свяжется курьер.", reply_markup=registered_menu_keyboard())
+        await callback.message.edit_text(
+            f"✅ Заказ #{order_id} оформлен! В течение 2 минут с вами свяжется курьер.",
+            reply_markup=registered_menu_keyboard()
+        )
     elif callback.data == "order_restart":
         order_state[user_id] = {"step": "phone_sender"}
         await callback.message.edit_text(
@@ -139,8 +168,6 @@ async def process_order(message: Message):
             reply_markup=photo_prompt_keyboard()
         )
     elif state["step"] == "media_and_description":
-        # Если в сообщении есть медиа – оно будет обработано через callback (skip_photo или через media handler ниже)
-        # Если пришёл только текст, обрабатываем описание и вес
         lines = text.splitlines()
         if len(lines) >= 2:
             state["description"] = lines[0]

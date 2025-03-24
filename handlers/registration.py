@@ -7,7 +7,6 @@ from keyboards import registered_menu_keyboard
 
 router = Router()
 
-# Временное хранение состояния регистрации
 registration_state = {}
 
 @router.callback_query(lambda c: c.data == "login_store")
