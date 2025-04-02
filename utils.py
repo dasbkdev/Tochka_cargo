@@ -24,9 +24,29 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     R = 6371  # Радиус Земли в км
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    a = (math.sin(dlat / 2) ** 2
+         + math.cos(math.radians(lat1))
+         * math.cos(math.radians(lat2))
+         * math.sin(dlon / 2) ** 2)
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
 def validate_phone(phone: str) -> bool:
-    return bool(re.fullmatch(r"\+\d{9,15}", phone))
+    pattern = (
+        r'^(\+7\d{10}|'
+        r'\+996\d{9}|'     
+        r'\+998\d{9}|'    
+        r'\+992\d{9}|'   
+        r'\+993\d{9}|'
+        r'\+994\d{9}|'
+        r'\+995\d{9}|'
+        r'\+374\d{8,9}|'
+        r'\+375\d{9}|'
+        r'\+380\d{9}|'
+        r'\+373\d{8,9})$'
+    )
+    return bool(re.match(pattern, phone))
+
+def validate_address(address: str) -> bool:
+    pattern = r'^.+?\s+\d+.*$'
+    return bool(re.match(pattern, address))

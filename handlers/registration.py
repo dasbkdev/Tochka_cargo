@@ -22,13 +22,15 @@ async def process_registration(message: Message):
     state = registration_state.get(user_id)
     if not state:
         return
+
     if state["step"] == "shop_name":
         state["shop_name"] = message.text.strip()
         state["step"] = "contact"
         await message.answer("Введите номер телефона или WhatsApp (например: +996123456789):")
+
     elif state["step"] == "contact":
         if not validate_phone(message.text.strip()):
-            await message.answer("Неверный формат номера. Попробуйте ещё раз:")
+            await message.answer("Неверный формат номера. Попробуйте ещё раз (пример: +996123456789):")
             return
         state["contact"] = message.text.strip()
         add_user(user_id, state["shop_name"], state["contact"], role="store")
