@@ -11,7 +11,6 @@ from config import ADMIN_IDS
 
 router = Router()
 
-# Состояния оформления заказа для каждого пользователя
 order_state = {}
 
 @router.callback_query(lambda c: c.data == "order")
